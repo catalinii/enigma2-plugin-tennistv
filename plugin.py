@@ -214,7 +214,7 @@ class _MatchListScreen(Screen):
         ref = "%d:0:1:0:0:0:0:0:0:0:%s:%s" % (GST_SERVICE_TYPE, encoded_url, encoded_name)
         self.session.nav.playService(eServiceReference(ref))
 
-    def _show_message(self, text, timeout=3):
+    def _show_message(self, text=""):
         self["status"].setText(text)
 
 
@@ -223,8 +223,8 @@ class _MatchListScreen(Screen):
 # ---------------------------------------------------------------------- #
 class TennisTVLive(_MatchListScreen):
     def __init__(self, session):
-        self.setTitle(PLUGIN_NAME + " - Live Now")
         _MatchListScreen.__init__(self, session)
+        self.setTitle(PLUGIN_NAME + " - Live Now")
         self._matches = []
         self._videos = []
 
@@ -269,7 +269,7 @@ class TennisTVLive(_MatchListScreen):
                     (label, functools.partial(self._start_play, video["mediaId"], title))
                 )
             else:
-                items.append((label, self._show_message))
+                items.append((label, functools.partial(self._show_message, "No dedicated stream for this match.")))
 
         return items
 
@@ -279,8 +279,8 @@ class TennisTVLive(_MatchListScreen):
 # ---------------------------------------------------------------------- #
 class TennisTVUpcoming(_MatchListScreen):
     def __init__(self, session):
-        self.setTitle(PLUGIN_NAME + " - Upcoming")
         _MatchListScreen.__init__(self, session)
+        self.setTitle(PLUGIN_NAME + " - Upcoming")
         self._matches = []
 
     def _fetch(self):
@@ -309,7 +309,7 @@ class TennisTVUpcoming(_MatchListScreen):
             if details:
                 label = "%s - %s" % (label, " | ".join(details))
 
-            items.append((label, self._show_message))
+            items.append((label, functools.partial(self._show_message, "Match not live yet.")))
 
         return items
 
