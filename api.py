@@ -365,6 +365,46 @@ class TennisTV(object):
         resp.raise_for_status()
         return resp.json()["media"]["hls"]
 
+    def stream_variant_url(self, media_id, max_bandwidth=5000000):
+        """Return an absolute variant playlist URL from a master HLS playlist.
+
+        The default GStreamer hlsdemux fails to resolve Akamai's tokenized
+        relative variant URLs (hdntl=... paths containing %2f), so we resolve
+        the relative URL ourselves and hand GStreamer the absolute variant URL
+        directly. Segment filenames within the variant are plain filenames and
+        resolve correctly.
+
+        Picks the highest variant at or below *max_bandwidth* bps.
+        """
+        master = self.stream_url(media_id)
+        resp = self.http.get(master)
+        resp.raise_for_status()
+        text = resp.text()
+        variants = []
+        current = {}
+        for line in text.splitlines():
+            if line.startswith("#EXT-X-STREAM-INF"):
+                bw = re.search(r"BANDWIDTH=(\d+)", line)
+                res = re.search(r"RESOLUTION=(\d+)x(\d+)", line)
+                current = {
+                    "bandwidth": int(bw.group(1)) if bw else 0,
+                    "height": int(res.group(2)) if res else 0,
+                }
+            elif line.strip() and not line.startswith("#"):
+                current["url"] = urllib.parse.urljoin(master, line)
+                variants.append(current)
+                current = {}
+
+        if not variants:
+            return master
+
+        candidates = [v for v in variants if v["bandwidth"] <= max_bandwidth]
+        if candidates:
+            best = max(candidates, key=lambda v: v["bandwidth"])
+        else:
+            best = min(variants, key=lambda v: v["bandwidth"])
+        return best["url"]
+
 
 # ---------------------------------------------------------------------- #
 # Match helpers

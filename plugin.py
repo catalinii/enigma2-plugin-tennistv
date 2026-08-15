@@ -5,11 +5,13 @@ Lists live ATP matches (mapped to their court feeds) and the upcoming
 schedule, and plays the HLS streams via the box's media player.
 
 Authentication uses the same Keycloak OIDC flow as the web player (see
-api.py). Credentials are entered in the plugin Settings screen and stored in
-the box settings (/etc/enigma2/settings). No credentials are stored in code.
+api.py). Credentials are entered in the plugin Settings screen and persisted
+to /etc/enigma2/ttv_credentials.json so they survive a reboot. No credentials
+are stored in code.
 """
 
 import functools
+import json
 import os
 import sys
 import threading
@@ -44,6 +46,7 @@ from api import (
     match_players,
     find_video_for_match,
 )
+import proxy
 
 PLUGIN_NAME = "Tennis TV"
 PLUGIN_DESC = "Watch live ATP tennis from Tennis TV"
@@ -55,13 +58,57 @@ config.plugins.tennistv = ConfigSubsection()
 config.plugins.tennistv.username = ConfigText(default="")
 config.plugins.tennistv.password = ConfigPassword(default="")
 
+CRED_FILE = resolveFilename(SCOPE_CONFIG, "ttv_credentials.json")
+TOKEN_FILE = resolveFilename(SCOPE_CONFIG, "ttv_tokens.json")
+
+
+def _save_credentials():
+    try:
+        with open(CRED_FILE, "w") as fh:
+            json.dump(
+                {
+                    "username": config.plugins.tennistv.username.value,
+                    "password": config.plugins.tennistv.password.value,
+                },
+                fh,
+            )
+    except Exception:
+        pass
+
+
+def _load_credentials():
+    try:
+        with open(CRED_FILE, "r") as fh:
+            data = json.load(fh)
+            config.plugins.tennistv.username.value = data.get("username", "")
+            config.plugins.tennistv.password.value = data.get("password", "")
+    except Exception:
+        pass
+
+
+def _on_credentials_changed(*args):
+    _save_credentials()
+
 
 def get_api():
     return TennisTV(
         username=config.plugins.tennistv.username.value,
         password=config.plugins.tennistv.password.value,
-        token_file=resolveFilename(SCOPE_CONFIG, "ttv_tokens.json"),
+        token_file=TOKEN_FILE,
     )
+
+
+_global_proxy = None
+
+
+def _get_proxy():
+    global _global_proxy
+    if _global_proxy is None:
+        _global_proxy = proxy.build_proxy()
+    return _global_proxy
+
+
+_load_credentials()
 
 
 def main(session, **kwargs):
@@ -196,7 +243,7 @@ class _MatchListScreen(Screen):
 
     def _resolve(self, media_id, title):
         try:
-            url = get_api().stream_url(media_id)
+            url = get_api().stream_variant_url(media_id)
             self._pending["url"] = url
         except TennisTVAuthError as exc:
             self._pending["error"] = str(exc)
@@ -209,10 +256,16 @@ class _MatchListScreen(Screen):
         if not url:
             self["status"].setText("Error: %s" % (self._pending.get("error") or "unknown"))
             return
-        encoded_url = quote(url, safe="")
+        try:
+            play_url = _get_proxy().wrap(url)
+        except Exception as exc:
+            self["status"].setText("Proxy error: %s" % exc)
+            return
+        encoded_url = quote(play_url, safe="")
         encoded_name = quote(self._pending.get("title", PLUGIN_NAME), safe="")
         ref = "%d:0:1:0:0:0:0:0:0:0:%s:%s" % (GST_SERVICE_TYPE, encoded_url, encoded_name)
         self.session.nav.playService(eServiceReference(ref))
+        self.close()
 
     def _show_message(self, text=""):
         self["status"].setText(text)
@@ -297,7 +350,7 @@ class TennisTVUpcoming(_MatchListScreen):
 
             when = match.get("NotBeforeText") or ""
             if match.get("NotBefore") and match["NotBefore"] not in ("Followed By", ""):
-                when = "%s %s" % (when, match["NotBefore"]).strip()
+                when = ("%s %s" % (when, match["NotBefore"])).strip()
 
             details = []
             if match.get("CourtName"):
@@ -308,6 +361,8 @@ class TennisTVUpcoming(_MatchListScreen):
                 details.append(when)
             if details:
                 label = "%s - %s" % (label, " | ".join(details))
+
+            label = "%s  [UPCOMING]" % label
 
             items.append((label, functools.partial(self._show_message, "Match not live yet.")))
 
@@ -349,8 +404,15 @@ class TennisTVSettings(ConfigListScreen, Screen):
         )
         self["config"].list = self.list
         self["config"].l.setList(self.list)
+        config.plugins.tennistv.username.addNotifier(
+            _on_credentials_changed, initial_call=False
+        )
+        config.plugins.tennistv.password.addNotifier(
+            _on_credentials_changed, initial_call=False
+        )
 
     def keySave(self):
+        _save_credentials()
         config.plugins.tennistv.save()
         self.close()
 
