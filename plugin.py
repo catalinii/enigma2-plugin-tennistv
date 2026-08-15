@@ -10,8 +10,14 @@ the box settings (/etc/enigma2/settings). No credentials are stored in code.
 """
 
 import functools
+import os
+import sys
 import threading
 from urllib.parse import quote
+
+# Enigma2 does not put the plugin directory on sys.path when it imports
+# plugin.py, so make the sibling "api" module importable.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from Plugins.Plugin import PluginDescriptor
 from Screens.Screen import Screen
