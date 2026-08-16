@@ -32,6 +32,7 @@ from Components.config import (
     ConfigSubsection,
     ConfigText,
     ConfigPassword,
+    ConfigSelection,
     getConfigListEntry,
 )
 from Components.ConfigList import ConfigListScreen
@@ -57,6 +58,15 @@ GST_SERVICE_TYPE = 4097
 config.plugins.tennistv = ConfigSubsection()
 config.plugins.tennistv.username = ConfigText(default="")
 config.plugins.tennistv.password = ConfigPassword(default="")
+config.plugins.tennistv.quality = ConfigSelection(
+    default="720",
+    choices=[
+        ("1080", "1080p"),
+        ("720", "720p"),
+        ("480", "480p"),
+        ("360", "360p"),
+    ],
+)
 
 CRED_FILE = resolveFilename(SCOPE_CONFIG, "ttv_credentials.json")
 TOKEN_FILE = resolveFilename(SCOPE_CONFIG, "ttv_tokens.json")
@@ -243,7 +253,9 @@ class _MatchListScreen(Screen):
 
     def _resolve(self, media_id, title):
         try:
-            url = get_api().stream_variant_url(media_id)
+            url = get_api().stream_variant_url(
+                media_id, quality=config.plugins.tennistv.quality.value
+            )
             self._pending["url"] = url
         except TennisTVAuthError as exc:
             self._pending["error"] = str(exc)
@@ -401,6 +413,9 @@ class TennisTVSettings(ConfigListScreen, Screen):
         )
         self.list.append(
             getConfigListEntry("Password", config.plugins.tennistv.password)
+        )
+        self.list.append(
+            getConfigListEntry("Stream quality", config.plugins.tennistv.quality)
         )
         self["config"].list = self.list
         self["config"].l.setList(self.list)

@@ -365,7 +365,7 @@ class TennisTV(object):
         resp.raise_for_status()
         return resp.json()["media"]["hls"]
 
-    def stream_variant_url(self, media_id, max_bandwidth=5000000):
+    def stream_variant_url(self, media_id, max_bandwidth=5000000, quality=None):
         """Return an absolute variant playlist URL from a master HLS playlist.
 
         The default GStreamer hlsdemux fails to resolve Akamai's tokenized
@@ -374,7 +374,8 @@ class TennisTV(object):
         directly. Segment filenames within the variant are plain filenames and
         resolve correctly.
 
-        Picks the highest variant at or below *max_bandwidth* bps.
+        Picks the highest variant at or below *max_bandwidth* bps, or an
+        exact height if *quality* (e.g. "1080", "720") is given.
         """
         master = self.stream_url(media_id)
         resp = self.http.get(master)
@@ -397,6 +398,15 @@ class TennisTV(object):
 
         if not variants:
             return master
+
+        if quality:
+            try:
+                h = int(quality)
+                for v in variants:
+                    if v["height"] == h:
+                        return v["url"]
+            except (ValueError, TypeError):
+                pass
 
         candidates = [v for v in variants if v["bandwidth"] <= max_bandwidth]
         if candidates:
