@@ -105,7 +105,7 @@ class _Handler(BaseHTTPRequestHandler):
                 abs_url = stripped if "://" in stripped else urljoin(base_url, stripped)
                 encoded = base64.urlsafe_b64encode(abs_url.encode()).decode()
                 line = "http://127.0.0.1:%d/proxy?url=%s" % (port, encoded)
-            elif stripped.startswith("#EXT-X-KEY:"):
+            elif stripped.startswith("#"):
                 m = re.search(r'URI="([^"]+)"', stripped)
                 if m:
                     key = m.group(1)

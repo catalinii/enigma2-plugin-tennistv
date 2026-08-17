@@ -341,6 +341,26 @@ class TennisTV(object):
         )
         return data.get("content", [])
 
+    def recorded_videos(self, tag="video-type:replay", page=1, page_size=50):
+        params = {"pageSize": page_size, "page": page}
+        if tag:
+            params["tagNames"] = tag
+        data = self._api_get("/content/atpmedia/VIDEO/EN", params=params)
+        return data.get("content", [])
+
+    def replay_videos(self, page=1, page_size=50):
+        return self.recorded_videos(tag="video-type:replay", page=page, page_size=page_size)
+
+    def match_highlight_videos(self, page=1, page_size=50):
+        return self.recorded_videos(tag="video-type:match-highlights", page=page, page_size=page_size)
+
+    def daily_highlight_videos(self, page=1, page_size=50):
+        return self.recorded_videos(tag="video-type:daily-highlights", page=page, page_size=page_size)
+
+    def completed_matches(self):
+        data = self._api_get("/tennis/v1/matches", params={"status": "C"})
+        return data.get("matches", [])
+
     # ------------------------------------------------------------------ #
     # Playback
     # ------------------------------------------------------------------ #
@@ -487,3 +507,18 @@ def find_video_for_match(match, videos):
         if v_tour == tournament_tag and v_court == court:
             return video
     return None
+
+
+def format_duration(seconds):
+    """Format duration in seconds to a human-readable string."""
+    try:
+        s = int(seconds)
+        if s <= 0:
+            return ""
+        m, sec = divmod(s, 60)
+        h, m = divmod(m, 60)
+        if h > 0:
+            return "%dh %02dm" % (h, m)
+        return "%dm %02ds" % (m, sec)
+    except (ValueError, TypeError):
+        return ""

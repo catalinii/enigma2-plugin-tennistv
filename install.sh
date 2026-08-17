@@ -20,11 +20,13 @@ fi
 
 PLUGIN_DIR="/usr/lib/enigma2/python/Plugins/Extensions/TennisTV"
 
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
 echo "Installing to $RECEIVER:$PLUGIN_DIR ..."
-ssh "$RECEIVER" "mkdir -p '$PLUGIN_DIR'"
-scp plugin.py api.py __init__.py "$RECEIVER:$PLUGIN_DIR/"
+ssh $SSH_OPTS "$RECEIVER" "mkdir -p '$PLUGIN_DIR'"
+scp $SSH_OPTS plugin.py api.py proxy.py __init__.py "$RECEIVER:$PLUGIN_DIR/"
 
 echo "Restarting Enigma2 GUI ..."
-ssh "$RECEIVER" "if command -v systemctl >/dev/null 2>&1; then systemctl restart enigma2; else killall -9 enigma2; fi"
+ssh $SSH_OPTS "$RECEIVER" "if command -v systemctl >/dev/null 2>&1; then systemctl restart enigma2; else killall -9 enigma2; fi"
 
 echo "Done. The plugin should now appear under Plugins -> Tennis TV."

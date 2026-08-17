@@ -17,6 +17,6 @@ VERSION="1.0.0"
 TARBALL="enigma2-plugin-tennistv-${VERSION}.tar.gz"
 
 rm -f "$TARBALL"
-tar czf "$TARBALL" plugin.py api.py __init__.py
+tar czf "$TARBALL" plugin.py api.py proxy.py __init__.py
 
 echo "Created $TARBALL"

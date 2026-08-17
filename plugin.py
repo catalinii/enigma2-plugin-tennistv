@@ -46,6 +46,7 @@ from api import (
     match_scores,
     match_players,
     find_video_for_match,
+    format_duration,
 )
 import proxy
 
@@ -152,6 +153,7 @@ class TennisTVMenu(Screen):
         self["menu"].setList(
             [
                 ("Live Now", self.open_live),
+                ("Match Archive", self.open_recorded),
                 ("Upcoming", self.open_upcoming),
                 ("Settings", self.open_settings),
             ]
@@ -168,6 +170,9 @@ class TennisTVMenu(Screen):
 
     def open_live(self):
         self.session.open(TennisTVLive)
+
+    def open_recorded(self):
+        self.session.open(TennisTVRecordedMenu)
 
     def open_upcoming(self):
         self.session.open(TennisTVUpcoming)
@@ -379,6 +384,110 @@ class TennisTVUpcoming(_MatchListScreen):
             items.append((label, functools.partial(self._show_message, "Match not live yet.")))
 
         return items
+
+
+# ---------------------------------------------------------------------- #
+# Recorded Games
+# ---------------------------------------------------------------------- #
+class TennisTVRecordedMenu(Screen):
+    skin = """
+        <screen name="TennisTVRecordedMenu" position="center,center" size="620,440" title="Tennis TV - Match Archive">
+            <widget name="menu" position="10,10" size="600,420" itemHeight="40"
+                    font="Regular;22" scrollbarMode="showOnDemand" />
+        </screen>
+        """
+
+    def __init__(self, session):
+        Screen.__init__(self, session)
+        self.session = session
+        self["menu"] = MenuList([])
+        self["menu"].setList(
+            [
+                ("Full Replays", self.open_replays),
+                ("Match Highlights", self.open_match_highlights),
+                ("Daily Highlights", self.open_daily_highlights),
+            ]
+        )
+        self["actions"] = ActionMap(
+            ["OkCancelActions", "ColorActions"],
+            {"ok": self.ok, "cancel": self.close, "red": self.close},
+        )
+
+    def ok(self):
+        current = self["menu"].getCurrent()
+        if current and len(current) > 1:
+            current[1]()
+
+    def open_replays(self):
+        self.session.open(TennisTVReplays)
+
+    def open_match_highlights(self):
+        self.session.open(TennisTVMatchHighlights)
+
+    def open_daily_highlights(self):
+        self.session.open(TennisTVDailyHighlights)
+
+
+class _RecordedVideoListScreen(_MatchListScreen):
+    def __init__(self, session, title, fetch_method, empty_text):
+        _MatchListScreen.__init__(self, session)
+        self.setTitle(PLUGIN_NAME + " - " + title)
+        self._fetch_method = fetch_method
+        self._empty_msg = empty_text
+        self._videos = []
+
+    def _fetch(self):
+        api_client = get_api()
+        self._videos = getattr(api_client, self._fetch_method)()
+
+    def _empty_text(self):
+        return self._empty_msg
+
+    def _build_items(self):
+        items = []
+        for video in self._videos:
+            media_id = video.get("mediaId")
+            if not media_id:
+                continue
+            title = video.get("title") or "Untitled Video"
+            date_str = (video.get("date") or "")[:10]
+            dur_sec = video.get("duration") or (video.get("additionalInfo") or {}).get("VideoDuration") or 0
+            dur_str = format_duration(dur_sec)
+
+            label = title
+            details = []
+            if date_str:
+                details.append(date_str)
+            if dur_str:
+                details.append(dur_str)
+            if details:
+                label = "%s  [%s]" % (title, " | ".join(details))
+
+            items.append(
+                (label, functools.partial(self._start_play, media_id, title))
+            )
+        return items
+
+
+class TennisTVReplays(_RecordedVideoListScreen):
+    def __init__(self, session):
+        _RecordedVideoListScreen.__init__(
+            self, session, "Full Replays", "replay_videos", "No replays available right now."
+        )
+
+
+class TennisTVMatchHighlights(_RecordedVideoListScreen):
+    def __init__(self, session):
+        _RecordedVideoListScreen.__init__(
+            self, session, "Match Highlights", "match_highlight_videos", "No match highlights available right now."
+        )
+
+
+class TennisTVDailyHighlights(_RecordedVideoListScreen):
+    def __init__(self, session):
+        _RecordedVideoListScreen.__init__(
+            self, session, "Daily Highlights", "daily_highlight_videos", "No daily highlights available right now."
+        )
 
 
 # ---------------------------------------------------------------------- #
