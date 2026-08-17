@@ -385,7 +385,7 @@ class TennisTV(object):
         resp.raise_for_status()
         return resp.json()["media"]["hls"]
 
-    def stream_variant_url(self, media_id, max_bandwidth=5000000, quality=None):
+    def stream_variant_url(self, media_id, max_bandwidth=20000000, quality=None):
         """Return an absolute variant playlist URL from a master HLS playlist.
 
         The default GStreamer hlsdemux fails to resolve Akamai's tokenized
