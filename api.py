@@ -494,18 +494,47 @@ def match_title(match):
 
 
 def find_video_for_match(match, videos):
-    """Map a live match to its court feed video, if any."""
+    """Map a match (live or completed) to its video feed, if any."""
+    if not match or not videos:
+        return None
+
+    # 1. Try court & tournament ID matching (live court feeds)
     tournament_tag = "%s_%s" % (
         match.get("TournamentId"),
         match.get("TournamentYear"),
     )
     court = str(match.get("CourtId", ""))
-    for video in videos:
-        info = video.get("additionalInfo") or {}
-        v_tour = (info.get("tournament_id_year") or "").strip('"')
-        v_court = (info.get("court_id") or "").strip('"')
-        if v_tour == tournament_tag and v_court == court:
-            return video
+    if court:
+        for video in videos:
+            info = video.get("additionalInfo") or {}
+            v_tour = (info.get("tournament_id_year") or "").strip('"')
+            v_court = (info.get("court_id") or "").strip('"')
+            if v_tour == tournament_tag and v_court == court:
+                return video
+
+    # 2. Try match ID matching (atp_matchid in video additionalInfo)
+    match_id = match.get("MatchId")
+    if match_id and match.get("TournamentId") and match.get("TournamentYear"):
+        full_atp_id = "%s_%s_%s" % (match.get("TournamentId"), match.get("TournamentYear"), match_id)
+        for video in videos:
+            info = video.get("additionalInfo") or {}
+            v_atp = (info.get("atp_matchid") or "").strip('"')
+            if v_atp == full_atp_id:
+                return video
+
+    # 3. Try player last name matching (replays / VODs)
+    p1 = match.get("PlayerTeam1") or {}
+    p2 = match.get("PlayerTeam2") or {}
+    last1 = (p1.get("PlayerLastName") or "").strip()
+    last2 = (p2.get("PlayerLastName") or "").strip()
+    if last1 and last2 and len(last1) > 2 and len(last2) > 2:
+        l1 = last1.lower()
+        l2 = last2.lower()
+        for video in videos:
+            text = ((video.get("title") or "") + " " + (video.get("description") or "")).lower()
+            if l1 in text and l2 in text:
+                return video
+
     return None
 
 

@@ -504,7 +504,9 @@ class TennisTVCompletedMatches(_MatchListScreen):
     def _fetch(self):
         api_client = get_api()
         self._matches = api_client.completed_matches()
-        self._videos = api_client.replay_videos(page_size=100)
+        replays = api_client.replay_videos(page_size=100)
+        highlights = api_client.match_highlight_videos(page_size=100)
+        self._videos = replays + highlights
 
     def _empty_text(self):
         return "No completed matches found."
