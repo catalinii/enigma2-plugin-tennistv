@@ -406,6 +406,7 @@ class TennisTVRecordedMenu(Screen):
                 ("Full Replays", self.open_replays),
                 ("Match Highlights", self.open_match_highlights),
                 ("Daily Highlights", self.open_daily_highlights),
+                ("Completed Matches", self.open_completed_matches),
             ]
         )
         self["actions"] = ActionMap(
@@ -426,6 +427,9 @@ class TennisTVRecordedMenu(Screen):
 
     def open_daily_highlights(self):
         self.session.open(TennisTVDailyHighlights)
+
+    def open_completed_matches(self):
+        self.session.open(TennisTVCompletedMatches)
 
 
 class _RecordedVideoListScreen(_MatchListScreen):
@@ -488,6 +492,41 @@ class TennisTVDailyHighlights(_RecordedVideoListScreen):
         _RecordedVideoListScreen.__init__(
             self, session, "Daily Highlights", "daily_highlight_videos", "No daily highlights available right now."
         )
+
+
+class TennisTVCompletedMatches(_MatchListScreen):
+    def __init__(self, session):
+        _MatchListScreen.__init__(self, session)
+        self.setTitle(PLUGIN_NAME + " - Completed Matches")
+        self._matches = []
+        self._videos = []
+
+    def _fetch(self):
+        api_client = get_api()
+        self._matches = api_client.completed_matches()
+        self._videos = api_client.replay_videos(page_size=100)
+
+    def _empty_text(self):
+        return "No completed matches found."
+
+    def _build_items(self):
+        items = []
+        for match in self._matches:
+            title = match_title(match)
+            score = match_scores(match)
+            label = title
+            if score:
+                label = "%s  [%s]" % (title, score)
+
+            video = find_video_for_match(match, self._videos)
+            if video and video.get("mediaId"):
+                items.append(
+                    (label, functools.partial(self._start_play, video["mediaId"], title))
+                )
+            else:
+                items.append((label, functools.partial(self._show_message, "No recorded stream for this match.")))
+
+        return items
 
 
 # ---------------------------------------------------------------------- #
