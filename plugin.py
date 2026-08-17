@@ -499,14 +499,10 @@ class TennisTVCompletedMatches(_MatchListScreen):
         _MatchListScreen.__init__(self, session)
         self.setTitle(PLUGIN_NAME + " - Completed Matches")
         self._matches = []
-        self._videos = []
 
     def _fetch(self):
         api_client = get_api()
         self._matches = api_client.completed_matches()
-        replays = api_client.replay_videos(page_size=100)
-        highlights = api_client.match_highlight_videos(page_size=100)
-        self._videos = replays + highlights
 
     def _empty_text(self):
         return "No completed matches found."
@@ -514,18 +510,31 @@ class TennisTVCompletedMatches(_MatchListScreen):
     def _build_items(self):
         items = []
         for match in self._matches:
-            title = match_title(match)
-            score = match_scores(match)
-            label = title
-            if score:
-                label = "%s  [%s]" % (title, score)
+            media_id = match.get("mediaId")
+            if media_id:
+                title = match.get("title") or "Untitled Match"
+                date_str = (match.get("date") or "")[:10]
+                dur_sec = match.get("duration") or (match.get("additionalInfo") or {}).get("VideoDuration") or 0
+                dur_str = format_duration(dur_sec)
 
-            video = find_video_for_match(match, self._videos)
-            if video and video.get("mediaId"):
+                label = title
+                details = []
+                if date_str:
+                    details.append(date_str)
+                if dur_str:
+                    details.append(dur_str)
+                if details:
+                    label = "%s  [%s]" % (title, " | ".join(details))
+
                 items.append(
-                    (label, functools.partial(self._start_play, video["mediaId"], title))
+                    (label, functools.partial(self._start_play, media_id, title))
                 )
             else:
+                title = match_title(match)
+                score = match_scores(match)
+                label = title
+                if score:
+                    label = "%s  [%s]" % (title, score)
                 items.append((label, functools.partial(self._show_message, "No recorded stream for this match.")))
 
         return items

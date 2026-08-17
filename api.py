@@ -358,6 +358,13 @@ class TennisTV(object):
         return self.recorded_videos(tag="video-type:daily-highlights", page=page, page_size=page_size)
 
     def completed_matches(self):
+        try:
+            replays = self.replay_videos(page_size=100)
+            matches_vod = [r for r in replays if "Full Day Replay" not in (r.get("title") or "")]
+            if matches_vod:
+                return matches_vod
+        except Exception:
+            pass
         data = self._api_get("/tennis/v1/matches", params={"status": "C"})
         return data.get("matches", [])
 
