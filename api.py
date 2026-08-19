@@ -428,7 +428,7 @@ class TennisTV(object):
 
         if quality:
             try:
-                h = int(quality)
+                h = int(str(quality).rstrip("p").strip())
                 for v in variants:
                     if v["height"] == h:
                         return v["url"]

@@ -80,6 +80,7 @@ def _save_credentials():
                 {
                     "username": config.plugins.tennistv.username.value,
                     "password": config.plugins.tennistv.password.value,
+                    "quality": config.plugins.tennistv.quality.value,
                 },
                 fh,
             )
@@ -93,6 +94,10 @@ def _load_credentials():
             data = json.load(fh)
             config.plugins.tennistv.username.value = data.get("username", "")
             config.plugins.tennistv.password.value = data.get("password", "")
+            if "quality" in data:
+                val = str(data["quality"]).rstrip("p")
+                if val in ("1080", "720", "480", "360"):
+                    config.plugins.tennistv.quality.value = val
     except Exception:
         pass
 
@@ -582,6 +587,9 @@ class TennisTVSettings(ConfigListScreen, Screen):
             _on_credentials_changed, initial_call=False
         )
         config.plugins.tennistv.password.addNotifier(
+            _on_credentials_changed, initial_call=False
+        )
+        config.plugins.tennistv.quality.addNotifier(
             _on_credentials_changed, initial_call=False
         )
 
